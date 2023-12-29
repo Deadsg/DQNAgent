@@ -1,54 +1,53 @@
 import QLAgent
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras.layers import Dense
-from tensorflow.keras import models
 import gym
 
-def QNetwork():
-    pass
+class QNetwork:
+    def __init__(self, input_size, output_size):
+        self.input_size = input_size
+        self.output_size = output_size
+        self.weights = np.random.rand(input_size, output_size)
+        self.biases = np.zeros(output_size)
 
-def dtype():
-    dtype(reshape, dtype=np.float32)
-    state = np.array(state, reshape, dtype=(object))
+    def predict(self, state):
+        return np.dot(state, self.weights) + self.biases
 
-def convert_dtype(reshape_func, state):
-    return np.array(reshape_func(state), dtype=np.float32)
+    def update_weights(self, state, target, learning_rate=0.01):
+        predicted_q_values = self.predict(state)
+        td_errors = target - predicted_q_values
 
-# Reshape function to flatten the input state
-reshape = lambda x: np.array(x).reshape(1, -1)
+        # Gradient descent update for weights and biases
+        gradient_weights = -2 * np.dot(state.T, td_errors) / state.shape[0]
+        gradient_biases = -2 * np.mean(td_errors)
+
+        self.weights -= learning_rate * gradient_weights
+        self.biases -= learning_rate * gradient_biases
+
+        return np.mean(td_errors**2)
 
 class DQNAgent:
     def __init__(self, observation_space, action_space):
         self.observation_space = observation_space
         self.action_space = action_space
-        self.q_network = self.build_q_network()
-        self.target_network = self.build_q_network()
+        self.q_network = QNetwork(observation_space.shape[0], action_space.n)
+        self.target_network = QNetwork(observation_space.shape[0], action_space.n)
         self.update_target_network()
 
-    def build_q_network(self):
-        model = models.Sequential([
-            Dense(64, activation='relu', input_shape=self.observation_space.shape),
-            Dense(64, activation='relu'),
-            Dense(self.action_space.n, activation='linear')
-        ])
-        model.compile(optimizer='adam', loss='mse')
-        return model
-
     def update_target_network(self):
-        self.target_network.set_weights(self.q_network.get_weights())
+        self.target_network.weights = np.copy(self.q_network.weights)
+        self.target_network.biases = np.copy(self.q_network.biases)
 
     def act(self, state, epsilon=0.1):
         if np.random.rand() < epsilon:
             return np.random.choice(self.action_space.n)
 
-        state = convert_dtype(reshape, state)
+        state = np.array(state).reshape(1, -1)
         q_values = self.q_network.predict(state)
         return np.argmax(q_values)
 
     def train(self, state, action, reward, next_state, done, gamma=0.99, batch_size=32):
-        state = convert_dtype(reshape, state)
-        next_state = convert_dtype(reshape, next_state)
+        state = np.array(state).reshape(1, -1)
+        next_state = np.array(next_state).reshape(1, -1)
 
         target = self.q_network.predict(state)
 
@@ -58,7 +57,7 @@ class DQNAgent:
             next_q_values = self.target_network.predict(next_state)
             target[0][action] = reward + gamma * np.max(next_q_values)
 
-        self.q_network.fit(state, target, epochs=1, verbose=0, batch_size=batch_size)
+        self.q_network.update_weights(state, target)
 
 env = gym.make('CartPole-v1')
 observation_space = env.observation_space
@@ -82,6 +81,5 @@ for episode in range(100):
         print("Next State:", next_state)
 
     print(f"Episode {episode + 1}, Total Reward: {total_reward}")
-    print(agent.q_network.summary())
-    for layer in agent.q_network.layers:
-        print(layer.get_weights())
+    print("Q Network Weights:", agent.q_network.weights)
+    print("Q Network Biases:", agent.q_network.biases)

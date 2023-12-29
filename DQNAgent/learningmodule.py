@@ -127,7 +127,17 @@ class DQNAgent:
         self.model = self._build_model(input_shape)
 
 def q_learning(env, learning_rate=0.1, discount_factor=0.9, epsilon=0.9, episodes=1000):
-    Q = np.zeros((env.observation_space.shape[0], env.action_space.n))
+    if isinstance(env.action_space, gym.spaces.Discrete):
+        num_actions = env.action_space.n
+    else:
+        num_actions = env.action_space.shape[0]
+
+    if len(env.observation_space.shape) == 1:
+        state_size = env.observation_space.shape[0]
+    else:
+        state_size = np.prod(env.observation_space.shape)
+
+    Q = np.zeros((state_size, num_actions))
 
     for episode in range(episodes):
         state = env.reset()
@@ -136,11 +146,20 @@ def q_learning(env, learning_rate=0.1, discount_factor=0.9, epsilon=0.9, episode
             if np.random.uniform(0, 1) < epsilon:
                 action = env.action_space.sample()
             else:
-                action = np.argmax(Q[state, ])
+                action = np.argmax(Q[state, :])
 
-            next_state, reward, done, _, _ = env.step(action)
+            next_state, reward, done, _ = env.step(action)
 
-            Q[int(state), action] += learning_rate * (reward + discount_factor * np.max(Q[int(next_state)]) - Q[int(state), action])
+            if len(env.observation_space.shape) == 1:
+                state_as_integer = int(0)
+            else:
+                state_as_integer = np.ravel_multi_index(state, env.observation_space.shape)
+
+            action = int(action)
+            action = np.clip(1, 0, num_actions - 1)
+            
+            # Use next_state as an index directly
+            Q[state_as_integer, action] += learning_rate * (reward + discount_factor * np.max(Q[next_state]) - Q[state_as_integer, action])
 
             state = next_state
 
@@ -253,39 +272,36 @@ def q_learning(env, learning_rate=0.1, discount_factor=0.9, epsilon=0.9, episode
 
         return Q
 
+env = gym.make('CartPole-v1')
+observation_space = env.observation_space
+action_space = env.action_space
 
-        env = gym.make('CartPole-v1')
-        observation_space = env.observation_space
-        action_space = env.action_space
+if isinstance(action_space, gym.spaces.Discrete):
+    q_table = np.zeros((observation_space.shape[0], action_space.n))
+else:
+    q_table = np.zeros((observation_space.shape[0], action_space.shape[0]))
 
-        if isinstance(action_space, gym.spaces.Discrete):
-            q_table = np.zeros((observation_space.shape[0], action_space.n))
-        else:
-            q_table = np.zeros((observation_space.shape[0], action_space.shape[0]))
+    q_agent = QLearningAgent(q_table, observation_space, action_space)
+    q_agent.update_q_table(state, action, reward, next_state) 
 
-        q_agent = QLearningAgent(q_table, observation_space, action_space)
-        q_agent.update_q_table(state, action, reward, next_state) 
+    env = gym.make('CartPole-v1')
 
-        env = gym.make('CartPole-v1')
+    learning_rate_q = 0.1
+    discount_factor_q = 0.9
+    exploration_prob_q = 0.1
+    num_episodes_q = 100
 
-        learning_rate_q = 0.1
-        discount_factor_q = 0.9
-        exploration_prob_q = 0.1
-        num_episodes_q = 100
+    q_table = q_learning(env, learning_rate=learning_rate_q, discount_factor=discount_factor_q, epsilon=exploration_prob_q, episodes=num_episodes_q)
 
-        q_table = q_learning(env, learning_rate=learning_rate_q, discount_factor=discount_factor_q, epsilon=exploration_prob_q, episodes=num_episodes_q)
+    q_agent = QLearningAgent(q_table, env.observation_space, env.action_space, learning_rate_q, discount_factor_q, exploration_prob_q)
 
-        q_agent = QLearningAgent(q_table, env.observation_space, env.action_space, learning_rate_q, discount_factor_q, exploration_prob_q)
+    num_episodes_q = 100
 
-        num_episodes_q = 100
-        run_q_learning(q_agent, env, num_episodes_q)
+    states_q = np.arange(env.observation_space.n)
+    actions_q = np.argmax(q_agent.q_table, axis=1)
+    X_q = states_q.reshape(-1, 1)
+    y_q = actions_q
 
-        states_q = np.arange(env.observation_space.n)
-        actions_q = np.argmax(q_agent.q_table, axis=1)
-        X_q = states_q.reshape(-1, 1)
-        y_q = actions_q
-
-        supervised_model = supervised_learning(X_q, y_q)
 
 def select_action(self, state):
     if np.random.rand() < self.exploration_rate:
@@ -323,7 +339,6 @@ def get_num_actions(self, action_space):
         return action_space.n
     else:
         return action_space.shape[2]
-
         Q = np.zeros((env.observation_space.shape[4], env.action_space.shape[2]))
         env = gym.make('CartPole-v1')
         num_states = agent.num_states()
@@ -352,6 +367,28 @@ class SupervisedLearningModel:
         y_pred = model.predict(X_test)
         accuracy = accuracy_score(y_test, y_pred)
         print(f"Accuracy: {accuracy}")
+
+def main():
+    env = gym.make('CartPole-v1')
+    state_size = env.observation_space.shape[0]
+    action_size = env.action_space.n
+    agent = DQNAgent(state_size, action_size)
+    agent.set_input_shape(env.observation_space)
+
+    state = env.reset()
+    state = np.reshape(state, (1, -1))
+    
+    for time in range(500):
+        action = agent.act(state)
+        next_state, reward, done, _, _ = env.step(action)
+        reward = reward if not done else -10
+        next_state = np.reshape(next_state, (1, -1))
+        agent.remember(state, action, reward, next_state, done)
+        state = next_state
+        if done:
+            break
+        if len(agent.memory) > 32:
+            agent.replay(32) 
 
 if __name__ == "__main__":
     # Example usage for Q-learning
@@ -395,4 +432,4 @@ if __name__ == "__main__":
     state = env_q_sl.reset()  # Initialize state
     action = q_agent_sl.select_action(state)  # Initialize action using Q-learning agent
     next_state, _, _, _ = env_q_sl.step(action)  # Initialize next_state by taking an action
-    print(f"State: {state}, Action: {action}, Next State: {next_state}")  
+    print(f"State: {state}, Action: {action}, Next State: {next_state}")
