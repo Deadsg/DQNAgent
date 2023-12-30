@@ -1,3 +1,4 @@
+import DQN_Bot
 import QLAgent
 import perceptionmodule
 from learningmodule import supervised_learning, QLearningAgent, run_q_learning, reinforcement_learning

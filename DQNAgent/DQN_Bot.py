@@ -1,6 +1,9 @@
 import random
 import numpy as np
 
+def DQN_Bot():
+    pass
+
 class ChatBot:
     def __init__(self, vocab_size=10000):
         self.vocab_size = vocab_size

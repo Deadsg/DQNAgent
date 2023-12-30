@@ -37,15 +37,27 @@ class QLearningAgent:
             return np.argmax(self.q_table[state, :])
 
     def update_q_table(self, state, action, reward, next_state):
-        best_next_action = np.argmax(self.q_table[int(next_state), :])
-        td_target = reward + self.discount_factor * self.q_table[int(next_state), best_next_action]
+        best_next_action = np.argmax(self.q_table[next_state, :])
+        td_target = reward + self.discount_factor * self.q_table[next_state, best_next_action]
         td_error = td_target - self.q_table[state, action]
         self.q_table[state, action] += self.learning_rate * td_error
 
-def q_learning(env, learning_rate, discount_factor, epsilon, episodes):
-    num_actions = env.action_space.n if isinstance(env.action_space, gym.spaces.Discrete) else env.action_space.shape[0]
-    num_states = env.observation_space.shape[0] if len(env.observation_space.shape) == 1 else np.prod(env.observation_space.shape)
-    Q = np.zeros((num_states, num_actions))
+def q_learning(env, learning_rate=0.1, discount_factor=0.9, epsilon=0.9, episodes=1000):
+    if isinstance(env.action_space, gym.spaces.Discrete):
+        num_actions = env.action_space.n
+    else:
+        num_actions = env.action_space.shape[0]
+
+    # Handle different types of observation spaces
+    if hasattr(env.observation_space, 'shape'):
+        if isinstance(env.observation_space.shape, int):
+            state_size = env.observation_space.shape
+        else:
+            state_size = env.observation_space.shape[0]
+    else:
+        state_size = 1
+
+    Q = np.zeros((state_size, num_actions))
 
     for episode in range(episodes):
         state = env.reset()
@@ -57,8 +69,24 @@ def q_learning(env, learning_rate, discount_factor, epsilon, episodes):
                 action = np.argmax(Q[state, :])
 
             next_state, reward, done, _ = env.step(action)
-            
-            Q[state, action] += learning_rate * (reward + discount_factor * np.max(Q[next_state, :]) - Q[state, action])
+
+            # Handle different types of observation spaces
+            if hasattr(env.observation_space, 'shape'):
+                if isinstance(env.observation_space.shape, int):
+                    state_as_integer = state
+                    next_state_as_integer = next_state
+                else:
+                    state_as_integer = np.ravel_multi_index(state, env.observation_space.shape)
+                    next_state_as_integer = np.ravel_multi_index(next_state, env.observation_space.shape)
+            else:
+                state_as_integer = int(0)
+                next_state_as_integer = int(0)
+
+            action = int(action)
+            action = np.clip(action, 0, num_actions - 1)
+
+            Q[state_as_integer, action] += learning_rate * (
+                    reward + discount_factor * np.max(Q[next_state_as_integer]) - Q[state_as_integer, action])
 
             state = next_state
 
@@ -429,8 +457,8 @@ def get_num_actions(self, action_space):
     else:
         return action_space.shape[2]
 
-Q = np.zeros((env.observation_space.shape[0] if hasattr(env.observation_space, 'shape') else 1,
-              env.action_space.shape[0] if hasattr(env.action_space, 'shape') else 0))
+Q = np.zeros((env.observation_space.shape[1] if hasattr(env.observation_space, 'shape') else -1,
+              env.action_space.shape[-1] if hasattr(env.action_space, 'shape') else -1))
 env = gym.make('CartPole-v1')
 num_states = agent.num_states()
 num_actions = agent.num_actions()
@@ -489,6 +517,51 @@ class SupervisedLearningModel:
         y_pred = model.predict(X_test)
         accuracy = accuracy_score(y_test, y_pred)
         print(f"Accuracy: {accuracy}")
+
+class reinforcement_learning:
+    def __init__(self, q_network_agent, observation_space, action_space, learning_rate=0.1, discount_factor=0.9, exploration_prob=0.1):
+        self.q_network_agent = q_network_agent
+        self.num_actions = self.get_num_actions(action_space)
+        self.num_states = self.get_num_states(observation_space)
+        self.learning_rate = learning_rate
+        self.discount_factor = discount_factor
+        self.exploration_rate = exploration_prob
+
+    def get_num_actions(self, action_space):
+        if isinstance(action_space, gym.spaces.Discrete):
+            return action_space.n
+        else:
+            return action_space.shape[0]
+
+    def get_num_states(self, observation_space):
+        if hasattr(observation_space, 'shape'):
+            if isinstance(observation_space.shape, int):
+                return observation_space.shape
+            else:
+                return observation_space.shape[0]
+        else:
+            return 1
+
+    def select_action(self, state):
+        if np.random.rand() < self.exploration_rate:
+            return np.random.choice(self.num_actions)
+        else:
+            q_values = self.q_network_agent.predict(state)
+            return np.argmax(q_values)
+
+    def update_q_network(self, state, action, reward, next_state):
+        # Q-network update logic based on Q-learning algorithm
+        q_values_current = self.q_network_agent.predict(state)
+        q_value_next = np.max(self.q_network_agent.predict(next_state))
+
+        td_target = reward + self.discount_factor * q_value_next
+        td_error = td_target - q_values_current[action]
+
+        # Update Q-values
+        q_values_current[action] += self.learning_rate * td_error
+
+        # Train the Q-network with the updated Q-values
+        self.q_network_agent.train(state, q_values_current)
 
 def main():
     env_q = gym.make('CartPole-v1')
