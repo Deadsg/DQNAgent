@@ -30,7 +30,5 @@ echo.
 
 echo Creating Environment:
 %MINICONDA_PATH%\Scripts\conda env create -f %BIN_PATH%\environment.yml
-echo Okay!
-echo Done!
-echo.
+
 rem TODO execute our PY_APP
