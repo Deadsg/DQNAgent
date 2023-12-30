@@ -2,31 +2,35 @@
 rem This script will install miniconda locally to the game.exe of the build
 rem a: K-Rawson y:2024
 
-rem Set the variables
 set BIN_PATH=%~dp0
 set ROOT_PATH=%BIN_PATH%..\
 set DQNA_PATH=%ROOT_PATH%\DQNAgent
 set MINICONDA_URL=https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
-set MINICONDA_INSTALLER=%BIN_PATH%\miniconda_installer.exe
+set MINICONDA_EXE=miniconda.exe
 set MINICONDA_PATH=%ROOT_PATH%\miniconda
-set REQUIREMENTS_TXT=requirements.txt
-set REQUIREMENTS_PATH=%ROOT_PATH%\%REQUIREMENTS_TXT%
 
-rem TODO this should be app.py calling DQNAgent.py
-set APP_PY=DQNAgent.py
-set APP_PATH=%DQNA_PATH%\%APP_PY%
+echo.
+echo Preparing Directory:
+IF DEFINED MINICONDA_PATH (
+  rd /s /q %MINICONDA_PATH% >nul 2>&1
+)
 
-rem Download the miniconda installer
-bitsadmin /transfer miniconda_download %MINICONDA_URL% %MINICONDA_INSTALLER%
+IF EXIST %MINICONDA_EXE% (
+  DEL /F %MINICONDA_EXE%
+)
+echo Okay!
+echo.
 
-echo Install Miniconda...
-rem Install miniconda silently to the local folder
-%MINICONDA_INSTALLER% /InstallationType=JustMe /RegisterPython=0 /S /D=%MINICONDA_PATH%
+echo Downloading and Installing Miniconda:
+curl %MINICONDA_URL% -o %MINICONDA_EXE%
+start /wait "" %MINICONDA_EXE% /InstallationType=JustMe /RegisterPython=0 /S /D=%MINICONDA_PATH%
+del %MINICONDA_EXE%
+echo Okay!
+echo.
 
-rem Delete the miniconda installer
-del %MINICONDA_INSTALLER%
-
-rem Run python command
-set PY_COMMAND=pip install -r %REQUIREMENTS_PATH%
-%MINICONDA_PATH%\%PY_COMMAND%
+echo Creating Environment:
+%MINICONDA_PATH%\Scripts\conda env create -f %BIN_PATH%\environment.yml
+echo Okay!
 echo Done!
+echo.
+rem TODO execute our PY_APP
