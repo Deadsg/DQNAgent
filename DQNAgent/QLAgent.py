@@ -3,6 +3,9 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 import gym
 
+def QLAgent():
+    pass
+
 def run_q_learning(agent, env, _):
     pass
 

@@ -8,6 +8,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 import random
 import copy
+from collections import deque
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from transformers import AutoModel, AutoTokenizer
+import torch
+from torch import nn
+import torch.optim as optim
 
 class QNetworkAgent():
     pass
@@ -18,67 +24,28 @@ def call(self, state):
         return self.output_layer(x)
 
 class QLearningAgent:
-    def __init__(self, state_size, num_actions, learning_rate=0.001, discount_factor=0.99, exploration_prob=1.0, exploration_decay=0.995):
-        self.state_size = state_size
-        self.num_actions = num_actions
+    def __init__(self, q_table, learning_rate=0.1, discount_factor=0.9, exploration_prob=0.1):
+        self.q_table = q_table
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
-        self.exploration_prob = exploration_prob
-        self.exploration_decay = exploration_decay
-
-        self.q_network = QNetwork(state_size, num_actions)
+        self.exploration_rate = exploration_prob
 
     def select_action(self, state):
-        if np.random.rand() < self.exploration_prob:
-            return np.random.choice(self.num_actions)
+        if np.random.rand() < self.exploration_rate:
+            return np.random.choice(self.q_table.shape[1])
         else:
-            q_values = self.q_network(np.array([state]))
-            return np.argmax(q_values)
+            return np.argmax(self.q_table[state, :])
 
-    def update_q_values(self, state, action, reward, next_state):
-        q_values = self.q_network(np.array([state]))
-        next_q_values = self.q_network.predict(np.array([next_state]))
+    def update_q_table(self, state, action, reward, next_state):
+        best_next_action = np.argmax(self.q_table[int(next_state), :])
+        td_target = reward + self.discount_factor * self.q_table[int(next_state), best_next_action]
+        td_error = td_target - self.q_table[state, action]
+        self.q_table[state, action] += self.learning_rate * td_error
 
-        best_next_action = np.argmax(next_q_values)
-        td_target = reward + self.discount_factor * next_q_values[0, best_next_action]
-        td_error = td_target - q_values[0, action]
-
-        q_values[0, action] += self.learning_rate * td_error
-
-    def train(self, env, num_episodes=1000):
-        for episode in range(num_episodes):
-            state = env.reset()
-            total_reward = 0
-
-            while True:
-                action = self.select_action(state)
-                next_state, reward, done, _, _ = env.step(action)
-
-                total_reward += reward
-
-                self.update_q_values(state, action, reward, next_state)
-
-                state = next_state
-
-                if done:
-                    break
-
-            self.exploration_prob *= self.exploration_decay
-            print(f"Episode: {episode + 1}, Total Reward: {total_reward}")
-
-
-def q_learning(env, learning_rate=0.1, discount_factor=0.9, epsilon=0.9, episodes=1000):
-    if isinstance(env.action_space, gym.spaces.Discrete):
-        num_actions = env.action_space.n
-    else:
-        num_actions = env.action_space.shape[0]
-
-    if len(env.observation_space.shape) == 1:
-        state_size = env.observation_space.shape[0]
-    else:
-        state_size = np.prod(env.observation_space.shape)
-
-    Q = np.zeros((state_size, num_actions))
+def q_learning(env, learning_rate, discount_factor, epsilon, episodes):
+    num_actions = env.action_space.n if isinstance(env.action_space, gym.spaces.Discrete) else env.action_space.shape[0]
+    num_states = env.observation_space.shape[0] if len(env.observation_space.shape) == 1 else np.prod(env.observation_space.shape)
+    Q = np.zeros((num_states, num_actions))
 
     for episode in range(episodes):
         state = env.reset()
@@ -87,26 +54,88 @@ def q_learning(env, learning_rate=0.1, discount_factor=0.9, epsilon=0.9, episode
             if np.random.uniform(0, 1) < epsilon:
                 action = env.action_space.sample()
             else:
-                action = np.argmax(Q[0, :])
+                action = np.argmax(Q[state, :])
 
-            next_state, reward, done, _, _ = env.step(action)
-
-            if len(env.observation_space.shape) == 1:
-                state_as_integer = int(0)
-            else:
-                state_as_integer = int(np.ravel_multi_index(state, env.observation_space.shape))
-
-            action = int(action)
-            action = np.clip(1, 0, num_actions - 1)
-            Q[0, 1] += learning_rate * (
-                    reward + discount_factor * np.max(Q[2, :]) - Q[2, 1])
+            next_state, reward, done, _ = env.step(action)
+            
+            Q[state, action] += learning_rate * (reward + discount_factor * np.max(Q[next_state, :]) - Q[state, action])
 
             state = next_state
 
     return Q
 
-def DQNAgent(state_size, action_size, model):
-    dqn_agent = DQNAgent(state_size, action_size)
+def calculate_y_q_sl():
+    # Placeholder implementation, replace with your logic
+    return np.zeros((100,))  # Assuming a numpy array for illustration
+
+class SupervisedLearningModel:
+    def __init__(self):
+        self.model = DecisionTreeClassifier()
+
+    def train(self, X_train, y_train):
+        self.model.fit(X_train, y_train)
+
+    def predict(self, X_test):
+        return self.model.predict(X_test)
+
+    def evaluate(self, X_test, y_test):
+        y_pred = self.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        print(f"Accuracy: {accuracy}")
+
+def supervised_learning(X, y):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    model = SupervisedLearningModel()
+    model.train(X_train, y_train)
+    model.evaluate(X_test, y_test)
+
+class DQNAgent:
+    def __init__(self, state_size, action_size):
+        self.state_size = state_size
+        self.action_size = action_size
+        self.memory = deque(maxlen=2000)
+        self.gamma = 0.95
+        self.epsilon = 1.0
+        self.epsilon_min = 0.01
+        self.epsilon_decay = 0.995
+        self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+        self.model = GPT2LMHeadModel.from_pretrained("gpt2")
+
+        self.tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-base")
+        self.transformer_model = AutoModel.from_pretrained("EleutherAI/gpt-neox-base")
+
+        # Build the Q-network using the transformer
+        self._build_model()
+
+        # Define optimizer and loss function
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        self.loss_fn = nn.MSELoss()
+
+    def _encode_state(self, state):
+        inputs = self.tokenizer(state, return_tensors="pt", truncation=True, padding=True)
+        return inputs
+
+    def _build_model(self):
+        # You may need to modify this based on the transformer model's architecture
+        input_size = self.transformer_model.config.hidden_size
+        output_size = self.action_size
+
+        # Custom layers for adapting the transformer output to Q-values
+        self.dense = nn.Linear(input_size, output_size)
+
+        # Define the Q-network model
+        self.model = nn.Sequential(
+            self.transformer_model,
+            nn.Flatten(),
+            self.dense
+        )
+
+    def train(self, states, targets):
+        self.optimizer.zero_grad()
+        outputs = self.model(states)
+        loss = self.loss_fn(outputs, targets)
+        loss.backward()
+        self.optimizer.step()
 
 def get_num_episodes():
     return 100
@@ -399,16 +428,49 @@ def get_num_actions(self, action_space):
         return action_space.n
     else:
         return action_space.shape[2]
-        Q = np.zeros((env.observation_space.shape[4], env.action_space.shape[2]))
-        env = gym.make('CartPole-v1')
-        num_states = agent.num_states()
-        num_actions = agent.num_actions()
-        state_size = env.observation_space.shape[4]
-        action_size = env.action_space.n if hasattr(env.action_space, 'n') else env.action_space.shape[2]
-        q_table = np.zeros((env.observation_space.shape[4], action_size))  # Initialize q_table
-        agent = QLearningAgent(q_table, env.observation_space, env.action_space)
-        num_episodes = 100
-        run_q_learning(agent, env, num_episodes)
+
+Q = np.zeros((env.observation_space.shape[0] if hasattr(env.observation_space, 'shape') else 1,
+              env.action_space.shape[0] if hasattr(env.action_space, 'shape') else 0))
+env = gym.make('CartPole-v1')
+num_states = agent.num_states()
+num_actions = agent.num_actions()
+state_size = env.observation_space.shape[4]
+action_size = env.action_space.n if hasattr(env.action_space, 'n') else env.action_space.shape[2]
+q_table = np.zeros((env.observation_space.shape[4], action_size))  # Initialize q_table
+agent = QLearningAgent(q_table, env.observation_space, env.action_space)
+num_episodes = 100
+
+class SupervisedLearningModel:
+    def __init__(self):
+        self.model = DecisionTreeClassifier()
+
+    def train(self, X_train, y_train):
+        self.model.fit(X_train, y_train)
+
+    def predict(self, X_test):
+        return self.model.predict(X_test)
+
+    def evaluate(self, X_test, y_test):
+        y_pred = self.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        print(f"Accuracy: {accuracy}")
+
+def supervised_learning(X, y):
+    # Split the data into training and testing sets
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Create an instance of the SupervisedLearningModel
+    model = SupervisedLearningModel()
+
+    # Train the model
+    model.train(X_train, y_train)
+
+    # Evaluate the model on the test set
+    model.evaluate(X_test, y_test)
+
+    y_q_sl = calculate_y_q_sl()
+
+    supervised_learning(X_q_sl, y_q_sl)
 
 class SupervisedLearningModel:
     def __init__(self):
@@ -429,67 +491,28 @@ class SupervisedLearningModel:
         print(f"Accuracy: {accuracy}")
 
 def main():
-    env = gym.make('CartPole-v1')
-    state_size = env.observation_space.shape[0]
-    action_size = env.action_space.n
-    agent = DQNAgent(state_size, action_size)
-    agent.set_input_shape(env.observation_space)
-
-    state = env.reset()
-    state = np.reshape(state, (1, -1))
-    
-    for time in range(500):
-        action = agent.act(state)
-        next_state, reward, done, _, _ = env.step(action)
-        reward = reward if not done else -10
-        next_state = np.reshape(next_state, (1, -1))
-        agent.remember(state, action, reward, next_state, done)
-        state = next_state
-        if done:
-            break
-        if len(agent.memory) > 32:
-            agent.replay(32) 
-
-if __name__ == "__main__":
-    # Example usage for Q-learning
     env_q = gym.make('CartPole-v1')
-    q_table_q = q_learning(env_q)
-    q_agent_q = QLearningAgent(q_table_q, env_q.observation_space, env_q.action_space)
+    q_table_q = q_learning(env_q, learning_rate=0.1, discount_factor=0.9, epsilon=0.9, episodes=1000)
+    q_agent_q = QLearningAgent(q_table_q, learning_rate=0.1, discount_factor=0.9, exploration_prob=0.1)
 
-    # Example usage for DQN
     env_dqn = gym.make('CartPole-v1')
     state_size_dqn = env_dqn.observation_space.shape[0]
     action_size_dqn = env_dqn.action_space.n
-    agent_dqn = DQNAgent(state_size_dqn, action_size_dqn)
-    agent_dqn.set_input_shape(env_dqn.observation_space)
+    agent_dqn = QLearningAgent(np.zeros((state_size_dqn, action_size_dqn)), learning_rate=0.1, discount_factor=0.9, exploration_prob=0.1)
 
-    state_dqn = env_dqn.reset()
-    state_dqn = np.reshape(state_dqn, (1, -1))
-    for time in range(500):
-        action_dqn = agent_dqn.act(state_dqn)
-        next_state_dqn, reward_dqn, done_dqn, _, _ = env_dqn.step(action_dqn)
-        reward_dqn = reward_dqn if not done_dqn else -10
-        next_state_dqn = np.reshape(next_state_dqn, (1, -1))
-        agent_dqn.remember(state_dqn, action_dqn, reward_dqn, next_state_dqn, done_dqn)
-        state_dqn = next_state_dqn
-        if done_dqn:
-            break
-        if len(agent_dqn.memory) > 32:
-            agent_dqn.replay(32)
-
-    # Example usage for Q-learning with Supervised Learning
     env_q_sl = gym.make('CartPole-v1')
-    q_table_sl = q_learning(env_q_sl)
-    q_agent_sl = QLearningAgent(q_table_sl, env_q_sl.observation_space, env_q_sl.action_space)
+    q_table_sl = q_learning(env_q_sl, learning_rate=0.1, discount_factor=0.9, epsilon=0.9, episodes=1000)
+    q_agent_sl = QLearningAgent(q_table_sl, learning_rate=0.1, discount_factor=0.9, exploration_prob=0.1)
 
-    # Use Q-learning data to train a supervised learning model
     states_q_sl = np.arange(env_q_sl.observation_space.n)
     actions_q_sl = np.argmax(q_agent_sl.q_table, axis=1)
     X_q_sl = states_q_sl.reshape(-1, 1)
     y_q_sl = actions_q_sl
 
-    # Print statements using defined variables
-    state = env_q_sl.reset()  # Initialize state
-    action = q_agent_sl.select_action(state)  # Initialize action using Q-learning agent
-    next_state, _, _, _ = env_q_sl.step(action)  # Initialize next_state by taking an action
+    state = env_q_sl.reset()
+    action = q_agent_sl.select_action(state)
+    next_state, _, _, _ = env_q_sl.step(action)
     print(f"State: {state}, Action: {action}, Next State: {next_state}")
+
+    # Perform Supervised Learning using Q-learning data
+    supervised_learning(X_q_sl, y_q_sl)
