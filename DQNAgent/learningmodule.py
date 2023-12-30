@@ -1,8 +1,6 @@
 import gym
 import numpy as np
 from collections import deque
-import QNetwork
-import QLAgent
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
@@ -23,24 +21,48 @@ def call(self, state):
         x = self.dense2(x)
         return self.output_layer(x)
 
+class QNetwork(nn.Module):
+    def __init__(self, input_size, output_size):
+        super(QNetwork, self).__init__()
+        self.transformer_model = AutoModel.from_pretrained("mistralai/Mistral-7B-Instruct-v0.2")
+        self.flatten = nn.Flatten()
+        self.dense = nn.Linear(self.transformer_model.config.hidden_size, output_size)
+
+    def forward(self, state):
+        inputs = self.transformer_model(**state)
+        x = self.flatten(inputs.last_hidden_state.mean(dim=1))
+        return self.dense(x)
+
 class QLearningAgent:
-    def __init__(self, q_table, learning_rate=0.1, discount_factor=0.9, exploration_prob=0.1):
-        self.q_table = q_table
+    def __init__(self, q_network, learning_rate=0.001, discount_factor=0.9, exploration_prob=0.1):
+        self.q_network = q_network
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
         self.exploration_rate = exploration_prob
+        self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
+        self.loss_fn = nn.MSELoss()
+        self.num_states = 0
 
     def select_action(self, state):
         if np.random.rand() < self.exploration_rate:
-            return np.random.choice(self.q_table.shape[1])
+            return np.random.choice(self.q_network.dense.out_features)
         else:
-            return np.argmax(self.q_table[state, :])
+            q_values = self.q_network(state)
+            return np.argmax(q_values.detach().numpy())
 
-    def update_q_table(self, state, action, reward, next_state):
-        best_next_action = np.argmax(self.q_table[next_state, :])
-        td_target = reward + self.discount_factor * self.q_table[next_state, best_next_action]
-        td_error = td_target - self.q_table[state, action]
-        self.q_table[state, action] += self.learning_rate * td_error
+    def update_q_network(self, state, action, reward, next_state):
+        state_tensor = {k: torch.tensor([v]) for k, v in state.items()}
+        next_state_tensor = {k: torch.tensor([v]) for k, v in next_state.items()}
+
+        self.optimizer.zero_grad()
+        q_values_current = self.q_network(state_tensor)
+        q_value_next = np.max(self.q_network(next_state_tensor).detach().numpy())
+
+        td_target = reward + self.discount_factor * q_value_next
+        td_error = td_target - q_values_current[0, action].item()
+        loss = self.loss_fn(q_values_current, torch.tensor([[td_target]]))
+        loss.backward()
+        self.optimizer.step()
 
 def q_learning(env, learning_rate=0.1, discount_factor=0.9, epsilon=0.9, episodes=1000):
     if isinstance(env.action_space, gym.spaces.Discrete):
@@ -118,7 +140,7 @@ def supervised_learning(X, y):
     model.evaluate(X_test, y_test)
 
 class DQNAgent:
-    def __init__(self, state_size, action_size):
+    def __init__(self, state_size, action_size, num_states):
         self.state_size = state_size
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
@@ -126,11 +148,12 @@ class DQNAgent:
         self.epsilon = 1.0
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
-        self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-        self.model = GPT2LMHeadModel.from_pretrained("gpt2")
+        self.tokenizer = AutoTokenizer
+        self.model = AutoModel
+        self.num_states = num_states
 
-        self.tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-base")
-        self.transformer_model = AutoModel.from_pretrained("EleutherAI/gpt-neox-base")
+        self.tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
+        self.transformer_model = AutoModel.from_pretrained("EleutherAI/gpt-neox-20b")
 
         # Build the Q-network using the transformer
         self._build_model()
@@ -157,6 +180,17 @@ class DQNAgent:
             nn.Flatten(),
             self.dense
         )
+
+        if hasattr(env.observation_space, 'shape'):
+            if isinstance(env.observation_space.shape, int):
+                self.num_states = env.observation_space.shape
+            else:
+                self.num_states = env.observation_space.shape[0]
+        else:
+            self.num_states = 1
+
+    def num_states(self):  # Corrected indentation to define a method
+        return self.num_states
 
     def train(self, states, targets):
         self.optimizer.zero_grad()
@@ -205,7 +239,7 @@ def action_space():
             action_space = (2)
 
 class DQNAgent:
-    def __init__(self, state_size, action_size):
+    def __init__(self, state_size, action_size, num_states):
         self.state_size = state_size
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
@@ -214,6 +248,8 @@ class DQNAgent:
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
         self.learning_rate = 0.001
+        self.model = AutoModel.from_pretrained("EleutherAI/gpt-neox-20b")
+        self.num_states = num_states
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
@@ -284,10 +320,11 @@ def q_learning(env, learning_rate=0.1, discount_factor=0.9, epsilon=0.9, episode
 env_q = gym.make('CartPole-v1')
 q_table_q = q_learning(env_q)
 
+num_states = 0
 env_dqn = gym.make('CartPole-v1')
 state_size_dqn = env_dqn.observation_space.shape[0]
 action_size_dqn = env_dqn.action_space.n
-agent_dqn = DQNAgent(state_size_dqn, action_size_dqn)
+agent_dqn = DQNAgent(1, -1, 1)
 agent_dqn.set_input_shape(env_dqn.observation_space)
 
 state_dqn = env_dqn.reset()
@@ -321,11 +358,11 @@ dtype = object
 env = gym.make('CartPole-v1')
 state_size = env.observation_space.shape[0]
 action_size = env.action_space.n
-agent = DQNAgent(state_size, action_size)
+agent = DQNAgent(state_size, action_size, num_states)
 agent.set_input_shape(env.observation_space)
 
 # Create an instance of the DQNAgent
-dqn_agent = DQNAgent(env.observation_space.shape[0], env.action_space.n)
+dqn_agent = DQNAgent(env.observation_space.shape[0], env.action_space.n, num_states)
 
 # Training the DQN
 state = env.reset()
@@ -350,6 +387,8 @@ class QLearningAgent:
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
         self.exploration_rate = exploration_prob
+        self.model = AutoModel.from_pretrained("mistralai/Mistral-7B-Instruct-v0.2")
+        self.num_states = num_states
 
     def select_action(self, state):
         if np.random.rand() < self.exploration_rate:
@@ -419,7 +458,6 @@ else:
     X_q = states_q.reshape(-1, 1)
     y_q = actions_q
 
-
 def select_action(self, state):
     if np.random.rand() < self.exploration_rate:
         return np.random.choice(self.num_actions)
@@ -457,10 +495,12 @@ def get_num_actions(self, action_space):
     else:
         return action_space.shape[2]
 
-Q = np.zeros((env.observation_space.shape[1] if hasattr(env.observation_space, 'shape') else -1,
-              env.action_space.shape[-1] if hasattr(env.action_space, 'shape') else -1))
+if hasattr(env.observation_space, 'shape'):
+    num_states = env.observation_space.shape[0] if isinstance(env.observation_space.shape, tuple) else env.observation_space.shape
+    Q = np.zeros((num_states, env.action_space.n))
+else:
+    Q = np.zeros((1, env.action_space.n))
 env = gym.make('CartPole-v1')
-num_states = agent.num_states()
 num_actions = agent.num_actions()
 state_size = env.observation_space.shape[4]
 action_size = env.action_space.n if hasattr(env.action_space, 'n') else env.action_space.shape[2]
@@ -563,6 +603,47 @@ class reinforcement_learning:
         # Train the Q-network with the updated Q-values
         self.q_network_agent.train(state, q_values_current)
 
+    class ChatBot:
+        def __init__(self, vocab_size=10000):
+            self.vocab_size = vocab_size
+            self.state_space = [i for i in range(vocab_size)]
+            self.action_space = 5
+            self.q_table = np.zeros((self.vocab_size, self.action_space))
+            self.alpha = 0.1
+            self.gamma = 0.8
+            self.epsilon = 0.1
+
+            self.llm_model = GPT2LMHeadModel.from_pretrained("mistralai/Mistral-7B-Instruct-v0.2")
+            self.llm_tokenizer = GPT2Tokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.2")
+
+        def preprocess(self, sentence):
+            words = sentence.split()
+            word_vectors = [w for w in words]
+            state = np.array([np.where(np.array(self.state_space) == i)[0][0] if i in self.state_space else 0 for i in word_vectors])
+            return state
+
+        def choose_action(self, current_state):
+            if random.random() < self.epsilon:
+                return np.random.randint(self.action_space)
+            else:
+                q_values = self.q_table[current_state]
+                return np.argmax(q_values)
+
+        def generate_response_llm(self, prompt):
+            response = self.llm_generator(prompt, max_length=50, num_return_sequences=1)
+            return response[0]['generated_text']
+
+        def learn(self, current_state, action, reward, next_state):
+            td_error = (reward + self.gamma * np.max(self.q_table[next_state]) - self.q_table[current_state, action])
+            self.q_table[current_state, action] += self.alpha * td_error
+
+        def show_q_table(self):
+            print("Q-Table:")
+            print(self.q_table)
+
+        def save_q_table(self, filename):
+            np.save(filename, self.q_table)
+
 def main():
     env_q = gym.make('CartPole-v1')
     q_table_q = q_learning(env_q, learning_rate=0.1, discount_factor=0.9, epsilon=0.9, episodes=1000)
@@ -589,3 +670,63 @@ def main():
 
     # Perform Supervised Learning using Q-learning data
     supervised_learning(X_q_sl, y_q_sl)
+
+class ChatBot:
+    def __init__(self, vocab_size=10000):
+        self.vocab_size = vocab_size
+        self.state_space = [i for i in range(vocab_size)]
+        self.action_space = 5
+        self.q_table = np.zeros((self.vocab_size, self.action_space))
+        self.alpha = 0.1
+        self.gamma = 0.8
+        self.epsilon = 0.1
+
+    def preprocess(self, sentence):
+        words = sentence.split()
+        word_vectors = [w for w in words]
+        state = np.array([np.where(self.state_space == i)[0][0] for i in word_vectors])
+        return state
+
+    def choose_action(self, current_state):
+        if random.random() < self.epsilon:
+            return np.random.randint(self.action_space)
+        else:
+            q_values = self.q_table[current_state]
+            return np.argmax(q_values)
+
+    def learn(self, current_state, action, reward, next_state):
+        td_error = (reward + self.gamma * np.max(self.q_table[next_state]) - self.q_table[current_state, action])
+        self.q_table[current_state, action] += self.alpha * td_error
+    
+    chatbot = ChatBot()
+
+    with open('your_custom_data.txt', 'r') as file:
+        conversation = file.readlines()
+
+    for epoch in range(1000):
+        for i, sentence in enumerate(conversation):
+            current_state = chatbot.preprocess(sentence)
+
+            action = chatbot.choose_action(current_state)
+
+            reward = random.uniform(0, 1)
+
+            next_state = chatbot.preprocess(conversation[i + 1]) if i + 1 < len(conversation) else current_state
+
+            chatbot.learn(current_state, action, reward, next_state)
+
+        chatbot.show_q_table()
+        chatbot.save_q_table(f'q_table_epoch_{epoch}.npy')
+
+    test_sentence = "How's it going?"
+    test_state = chatbot.preprocess(test_sentence)
+    predicted_action = chatbot.choose_action(test_state)
+
+    print(f"Test Sentence: '{test_sentence}'")
+    print(f"Predicted Action: {predicted_action}")
+
+    llm_response = chatbot.generate_response_llm("Tell me more about yourself.")
+    print(f"LLM Response: {llm_response}")
+
+if __name__ == "__main__":
+    main()
