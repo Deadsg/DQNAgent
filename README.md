@@ -1,5 +1,5 @@
 # DQN Agent
-A DQN Agent System that is in Development. Concept is to be implemented in self learing Q loop Algorithms for LLm learning.
+This project is a work in progress that aims to create a deep Q-network (DQN) agent system that can learn from its own experiences and adapt to different environments. The system uses a self-learning Q loop algorithm, which is a variant of Q-learning that updates the Q-values based on the agent’s actions and rewards. The system also uses LLm learning, which is a technique that leverages the latent space of the neural network to improve the generalization and robustness of the agent. The project is written in Python and uses PyTorch as the framework for the neural network.
 
 # Description
 
