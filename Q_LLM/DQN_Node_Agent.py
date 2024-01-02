@@ -1,3 +1,5 @@
+from Agent_Trainer import load_training_data, train_dqn_agent
+import json
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -5,6 +7,13 @@ import numpy as np
 from collections import namedtuple, deque
 import random
 import gym
+
+class DQNAgent:
+    def __init__(self, q_network, optimizer, input_size, output_size, learning_rate=0.1, discount_factor=0.9):
+        self.q_network = q_network(input_size, output_size)  # Create an instance of QNetwork
+        self.optimizer = optimizer(self.q_network.parameters(), lr=learning_rate)  # Create an instance of the optimizer
+        self.discount_factor = discount_factor
+        self.loss_fn = nn.MSELoss()
 
 def DQN_Node_Agent():
     QNetwork
@@ -103,7 +112,7 @@ def train_dqn():
     env = gym.make("CartPole-v1")  # Replace with your environment
 
     # DQN agent
-    agent = DQNAgent(state_size, action_size)
+    agent = DQNAgent(state_size, action_size, input_size=10, output_size=20)
 
     episodes = 1000
     epsilon = 1.0
@@ -112,10 +121,12 @@ def train_dqn():
 
     for episode in range(episodes):
         state = env.reset()
-        state = torch.tensor(state, dtype=torch.float32).view(1, -1)
         total_reward = 0
 
         while True:
+            # Ensure the state has the correct length
+            state = torch.tensor(state, dtype=torch.float32).view(1, -1)
+
             # Choose action
             action = agent.select_action(state, epsilon)
 
@@ -141,5 +152,77 @@ def train_dqn():
 
         print(f"Episode {episode + 1}, Total Reward: {total_reward}")
 
+class QNetwork(nn.Module):
+    def __init__(self, input_size, output_size):
+        super(QNetwork, self).__init__()
+        self.dense1 = nn.Linear(input_size, 128)
+        self.dense2 = nn.Linear(128, 64)
+        self.output_layer = nn.Linear(64, output_size)
+
+    def forward(self, state):
+        x = torch.relu(self.dense1(state))
+        x = torch.relu(self.dense2(x))
+        return self.output_layer(x)
+
+class DQNAgent:
+    def __init__(self, q_network, optimizer, input_size, output_size, learning_rate=0.1, discount_factor=0.9):
+        self.q_network = q_network(input_size, output_size)
+        self.optimizer = optimizer(self.q_network.parameters(), lr=learning_rate)
+        self.discount_factor = discount_factor
+        self.loss_fn = nn.MSELoss()
+
+    def select_action(self, state, exploration_prob):
+        if np.random.rand() < exploration_prob:
+            return np.random.choice(self.q_network.output_layer.out_features)
+        else:
+            q_values = self.q_network(state)
+            return torch.argmax(q_values).item()
+
+    def update_q_network(self, state, action, reward, next_state):
+        self.optimizer.zero_grad()
+
+        q_values_current = self.q_network(state)
+        q_value_next = torch.max(self.q_network(next_state).detach()).item()
+
+        td_target = reward + self.discount_factor * q_value_next
+        td_error = td_target - q_values_current[0, action].item()
+
+        loss = self.loss_fn(q_values_current.squeeze(), torch.tensor([td_target], dtype=torch.float32))
+        loss.backward()
+        self.optimizer.step()
+
+    def load_training_data(file_path):
+        with open(file_path, 'r', encoding='utf-8') as file:
+            training_data = json.load(file)
+        return training_data
+
+    @classmethod
+    def train_dqn_agent(self, agent, training_data, episodes=1000):
+        for episode in range(episodes):
+            for data_point in training_data:
+                role = data_point.get("role")
+                content = data_point.get("content")
+
+                processed_content = [ord(char) for char in content]
+
+                # Assuming content is now in a format suitable for your Q-network
+                state = torch.tensor(processed_content, dtype=torch.float32)
+                action = agent.select_action(state, exploration_prob=0.1)
+                next_state = torch.tensor(next_content, dtype=torch.float32)
+                reward = 1.0  # Placeholder, define the reward based on your problem
+
+                agent.update_q_network(state, action, reward, next_state)
+
 if __name__ == "__main__":
+    q_network = QNetwork
+    optimizer = optim.Adam
+    input_size = 10
+    output_size = 20
+    dqn_agent = DQNAgent(q_network, optimizer, input_size, output_size)  # Pass instances of QNetwork and optimizer
+    training_data_path = "C:/Users/Mayra/Documents/AGI/Q_LLM/training_data/training_data.json"
+    training_data = load_training_data(training_data_path)
+
+    # Call the class method using the class name and parentheses
+    DQNAgent.train_dqn_agent(dqn_agent, training_data, episodes=1000)
+
     train_dqn()

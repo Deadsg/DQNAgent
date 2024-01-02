@@ -4,7 +4,6 @@ import torch.optim as optim
 import numpy as np
 from collections import deque, namedtuple
 import random
-
 from Reasoning_ import train_layered_dqn
 
 # Definition of the QNetwork class (as used in the DQNAgent)
