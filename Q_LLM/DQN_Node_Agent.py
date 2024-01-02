@@ -257,15 +257,30 @@ class DQNAgent:
                 role = data_point.get("role")
                 content = data_point.get("content")
 
+                # Convert content to a list of ASCII values
                 processed_content = [ord(char) for char in content]
 
                 # Assuming content is now in a format suitable for your Q-network
                 state = torch.tensor(processed_content, dtype=torch.float32)
-                action = agent.select_action(128, exploration_prob=0.1)
-                next_state = torch.tensor(next_content, dtype=torch.float32)
+
+                # Choose an action using epsilon-greedy policy
+                exploration_prob = max(self.min_epsilon, self.epsilon * self.epsilon_decay**episode)
+                action = agent.select_action(state, exploration_prob)
+
+                # Placeholder: Obtain next_state and reward based on your problem
+                next_content = "..."  # Replace with your logic
+                next_state = torch.tensor([ord(char) for char in next_content], dtype=torch.float32)
                 reward = 1.0  # Placeholder, define the reward based on your problem
 
+                # Update the Q-network
                 agent.update_q_network(state, action, reward, next_state)
+
+                # Update state and total reward
+                state = next_state
+                self.total_reward += reward
+
+                if done:
+                    break
 
 if __name__ == "__main__":
     q_network = QNetwork
@@ -276,7 +291,8 @@ if __name__ == "__main__":
     training_data_path = "C:/Users/Mayra/Documents/AGI/Q_LLM/training_data/training_data.json"
     training_data = load_training_data(training_data_path)
 
-    # Call the class method using the class name and parentheses
-    DQNAgent.train_dqn_agent(dqn_agent, training_data, episodes=1000)
+    self = DQNAgent(q_network, optimizer, 128, 64)
+    exploration_prob = max(self.min_epsilon, self.epsilon * self.epsilon_decay**episode)
+    DQNAgent.train_dqn_agent(dqn_agent, exploration_prob, training_data, episodes=1000)
 
     train_dqn()

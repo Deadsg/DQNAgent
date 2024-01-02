@@ -1,4 +1,5 @@
 import json
+from turtle import done
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -85,16 +86,36 @@ def load_training_data(training_data_path, encoding='utf-8'):
         training_data = json.load(file)
     return training_data
 
-def train_dqn_agent(agent, training_data, episodes=1000):
-    for episode in range(episodes):
-        for data_point in training_data:
-            role = data_point.get("role")
-            content = data_point.get("content")
-            state = torch.tensor(content, dtype=torch.float32)
-            action = agent.select_action(state, exploration_prob=0.1)
-            next_state = torch.tensor(next_content, dtype=torch.float32)
-            reward = 1.0
-            agent.update_q_network(state, action, reward, next_state)
+def train_dqn_agent(self, agent, training_data, episodes=1000):
+        for episode in range(episodes):
+            for data_point in training_data:
+                role = data_point.get("role")
+                content = data_point.get("content")
+
+                # Convert content to a list of ASCII values
+                processed_content = [ord(char) for char in content]
+
+                # Assuming content is now in a format suitable for your Q-network
+                state = torch.tensor(processed_content, dtype=torch.float32)
+
+                # Choose an action using epsilon-greedy policy
+                exploration_prob = max(self.min_epsilon, self.epsilon * self.epsilon_decay**episode)
+                action = agent.select_action(state, exploration_prob)
+
+                # Placeholder: Obtain next_state and reward based on your problem
+                next_content = "..."  # Replace with your logic
+                next_state = torch.tensor([ord(char) for char in next_content], dtype=torch.float32)
+                reward = 1.0  # Placeholder, define the reward based on your problem
+
+                # Update the Q-network
+                agent.update_q_network(state, action, reward, next_state)
+
+                # Update state and total reward
+                state = next_state
+                self.total_reward += reward
+
+                if done:
+                    break
 
 def train_dqn():
     state_size = 4
