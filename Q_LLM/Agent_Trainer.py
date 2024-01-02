@@ -80,8 +80,8 @@ class DQNAgent:
     def update_target_network(self):
         self.target_network.load_state_dict(self.q_network.state_dict())
 
-def load_training_data(file_path):
-    with open(file_path, 'r') as file:
+def load_training_data(training_data_path, encoding='utf-8'):
+    with open(training_data_path, 'r', encoding=encoding) as file:
         training_data = json.load(file)
     return training_data
 

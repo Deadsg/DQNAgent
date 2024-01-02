@@ -1,3 +1,4 @@
+from turtle import done
 from Agent_Trainer import load_training_data, train_dqn_agent
 import json
 import torch
@@ -170,29 +171,82 @@ class DQNAgent:
         self.optimizer = optimizer(self.q_network.parameters(), lr=learning_rate)
         self.discount_factor = discount_factor
         self.loss_fn = nn.MSELoss()
+        self.q_network = QNetwork(128, 64)
+        self.target_network = QNetwork(128, 64)
 
     def select_action(self, state, exploration_prob):
         if np.random.rand() < exploration_prob:
             return np.random.choice(self.q_network.output_layer.out_features)
         else:
-            q_values = self.q_network(state)
+            q_values = self.q_network(128)
             return torch.argmax(q_values).item()
 
     def update_q_network(self, state, action, reward, next_state):
-        self.optimizer.zero_grad()
+        # Convert state and next_state to 1-dimensional tensors
+        state = state.view(1, -1)
+        next_state = next_state.view(1, -1)
 
+        # Ensure that the state and next_state have the correct shapes
+
+        # Step 1: Perform Q-value estimation for the current state
         q_values_current = self.q_network(state)
-        q_value_next = torch.max(self.q_network(next_state).detach()).item()
+        action_q_value_current = q_values_current[0, action]
 
-        td_target = reward + self.discount_factor * q_value_next
-        td_error = td_target - q_values_current[0, action].item()
+        # Step 2: Compute the target Q-value using the Bellman equation
+        with torch.no_grad():
+            next_q_values = self.target_network(next_state)
+            max_next_q_value, _ = torch.max(next_q_values, dim=1, keepdim=True)
+            target_q_value = reward + self.discount_factor * max_next_q_value
 
-        loss = self.loss_fn(q_values_current.squeeze(), torch.tensor([td_target], dtype=torch.float32))
+        # Step 3: Compute the TD error and update the Q-network
+        td_error = target_q_value - action_q_value_current
+
+        # Step 4: Compute the loss and backpropagate
+        loss = self.loss_fn(action_q_value_current, target_q_value)
+        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
-    def load_training_data(file_path):
-        with open(file_path, 'r', encoding='utf-8') as file:
+        # Step 5: Update the target network periodically
+        if self.total_steps % self.target_update_frequency == 0:
+            self.update_target_network()
+
+        # Increment the total_steps counter
+        self.total_steps += 1
+
+    def train_dqn_agent(self, agent, training_data, episodes=1000):
+        for episode in range(episodes):
+            for data_point in training_data:
+                role = data_point.get("role")
+                content = data_point.get("content")
+
+                # Convert content to a list of ASCII values
+                processed_content = [ord(char) for char in content]
+
+                # Assuming content is now in a format suitable for your Q-network
+                state = torch.tensor(processed_content, dtype=torch.float32)
+
+                # Choose an action using epsilon-greedy policy
+                exploration_prob = max(self.min_epsilon, self.epsilon * self.epsilon_decay**episode)
+                action = agent.select_action(state, exploration_prob)
+
+                # Placeholder: Obtain next_state and reward based on your problem
+                next_content = "..."  # Replace with your logic
+                next_state = torch.tensor([ord(char) for char in next_content], dtype=torch.float32)
+                reward = 1.0  # Placeholder, define the reward based on your problem
+
+                # Update the Q-network
+                agent.update_q_network(state, action, reward, next_state)
+
+                # Update state and total reward
+                state = next_state
+                self.total_reward += reward
+
+                if done:
+                    break
+
+    def load_training_data(training_data_path, encoding='utf-8'):
+        with open(training_data_path, 'r', encoding=encoding) as file:
             training_data = json.load(file)
         return training_data
 
@@ -207,7 +261,7 @@ class DQNAgent:
 
                 # Assuming content is now in a format suitable for your Q-network
                 state = torch.tensor(processed_content, dtype=torch.float32)
-                action = agent.select_action(state, exploration_prob=0.1)
+                action = agent.select_action(128, exploration_prob=0.1)
                 next_state = torch.tensor(next_content, dtype=torch.float32)
                 reward = 1.0  # Placeholder, define the reward based on your problem
 
