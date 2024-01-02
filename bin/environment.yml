@@ -1,4 +1,4 @@
-name: DQNAgent
+name: dqnagent
 dependencies:
   - python=3.8
   - numpy
