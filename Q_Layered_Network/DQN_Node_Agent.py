@@ -1,5 +1,4 @@
 from turtle import done
-from Agent_Trainer import load_training_data, train_dqn_agent
 import json
 import torch
 import torch.nn as nn
@@ -9,17 +8,36 @@ from collections import namedtuple, deque
 import random
 import gym
 
+def DQN_Node_Agent():
+    QNetwork
+    DQNAgent(self, q_network, optimizer, state_size, action_size, input_size, output_size, learning_rate=0.001, discount_factor=0.9, buffer_size=10000, batch_size=64, gamma=0.99, min_epsilon=0.01, epsilon_decay=0.995, target_update_frequency=100, epsilon=1.0)
+    self = DQNAgent
+    learning_rate = 0.001
+    q_network = QNetwork
+    optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
+    
 class DQNAgent:
-    def __init__(self, q_network, optimizer, input_size, output_size, learning_rate=0.1, discount_factor=0.9):
+    def __init__(self, q_network, optimizer, state_size, action_size, input_size, output_size, learning_rate=0.001, discount_factor=0.9, buffer_size=10000, batch_size=64, gamma=0.99, min_epsilon=0.01, epsilon_decay=0.995, target_update_frequency=100, epsilon=1.0):
         self.q_network = q_network(input_size, output_size)  # Create an instance of QNetwork
         self.optimizer = optimizer(self.q_network.parameters(), lr=learning_rate)  # Create an instance of the optimizer
         self.discount_factor = discount_factor
         self.loss_fn = nn.MSELoss()
-
-def DQN_Node_Agent():
-    QNetwork
-    DQNAgent
-    pass
+        self.epsilon = epsilon
+        self.min_epsilon = min_epsilon
+        self.epsilon_decay = epsilon_decay
+        self.target_update_frequency = target_update_frequency
+        self.total_steps = 0
+        self.state_size = state_size
+        self.action_size = action_size
+        self.buffer_size = buffer_size
+        self.batch_size = batch_size
+        self.gamma = gamma
+        self.buffer = ReplayBuffer(buffer_size)
+        self.q_network = QNetwork(state_size, action_size)
+        self.target_network = QNetwork(state_size, action_size)
+        self.target_network.load_state_dict(self.q_network.state_dict())
+        self.target_network.eval()
+        self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
 
 class QNetwork(nn.Module):
     def __init__(self, state_size, action_size):
@@ -50,20 +68,26 @@ class ReplayBuffer:
 
 # Define the DQN Agent
 class DQNAgent:
-    def __init__(self, state_size, action_size, buffer_size=10000, batch_size=64, gamma=0.99, learning_rate=0.001):
+    def __init__(self, q_network, optimizer, state_size, action_size, input_size, output_size, learning_rate=0.001, discount_factor=0.9, buffer_size=10000, batch_size=64, gamma=0.99, min_epsilon=0.01, epsilon_decay=0.995, target_update_frequency=100, epsilon=1.0):
+        self.q_network = q_network(input_size, output_size)  # Create an instance of QNetwork
+        self.optimizer = optimizer(self.q_network.parameters(), lr=learning_rate)  # Create an instance of the optimizer
+        self.discount_factor = discount_factor
+        self.loss_fn = nn.MSELoss()
+        self.epsilon = epsilon
+        self.min_epsilon = min_epsilon
+        self.epsilon_decay = epsilon_decay
+        self.target_update_frequency = target_update_frequency
+        self.total_steps = 0
         self.state_size = state_size
         self.action_size = action_size
-        self.buffer = ReplayBuffer(buffer_size)
+        self.buffer_size = buffer_size
         self.batch_size = batch_size
         self.gamma = gamma
-
-        # Q-networks
+        self.buffer = ReplayBuffer(buffer_size)
         self.q_network = QNetwork(state_size, action_size)
         self.target_network = QNetwork(state_size, action_size)
         self.target_network.load_state_dict(self.q_network.state_dict())
         self.target_network.eval()
-
-        # Optimizer
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
 
     def select_action(self, state, epsilon):
@@ -113,7 +137,7 @@ def train_dqn():
     env = gym.make("CartPole-v1")  # Replace with your environment
 
     # DQN agent
-    agent = DQNAgent(state_size, action_size, input_size=10, output_size=20)
+    agent = DQNAgent(state_size, action_size, input_size=128, output_size=64)
 
     episodes = 1000
     epsilon = 1.0
@@ -166,13 +190,27 @@ class QNetwork(nn.Module):
         return self.output_layer(x)
 
 class DQNAgent:
-    def __init__(self, q_network, optimizer, input_size, output_size, learning_rate=0.1, discount_factor=0.9):
-        self.q_network = q_network(input_size, output_size)
-        self.optimizer = optimizer(self.q_network.parameters(), lr=learning_rate)
+    def __init__(self, q_network, optimizer, state_size, action_size, input_size, output_size, learning_rate=0.001, discount_factor=0.9, buffer_size=10000, batch_size=64, gamma=0.99, min_epsilon=0.01, epsilon_decay=0.995, target_update_frequency=100, epsilon=1.0):
+        self.q_network = q_network(input_size, output_size)  # Create an instance of QNetwork
+        self.optimizer = optimizer(self.q_network.parameters(), lr=learning_rate)  # Create an instance of the optimizer
         self.discount_factor = discount_factor
         self.loss_fn = nn.MSELoss()
-        self.q_network = QNetwork(128, 64)
-        self.target_network = QNetwork(128, 64)
+        self.epsilon = epsilon
+        self.min_epsilon = min_epsilon
+        self.epsilon_decay = epsilon_decay
+        self.target_update_frequency = target_update_frequency
+        self.total_steps = 0
+        self.state_size = state_size
+        self.action_size = action_size
+        self.buffer_size = buffer_size
+        self.batch_size = batch_size
+        self.gamma = gamma
+        self.buffer = ReplayBuffer(buffer_size)
+        self.q_network = QNetwork(state_size, action_size)
+        self.target_network = QNetwork(state_size, action_size)
+        self.target_network.load_state_dict(self.q_network.state_dict())
+        self.target_network.eval()
+        self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
 
     def select_action(self, state, exploration_prob):
         if np.random.rand() < exploration_prob:
@@ -257,42 +295,41 @@ class DQNAgent:
                 role = data_point.get("role")
                 content = data_point.get("content")
 
-                # Convert content to a list of ASCII values
                 processed_content = [ord(char) for char in content]
 
-                # Assuming content is now in a format suitable for your Q-network
                 state = torch.tensor(processed_content, dtype=torch.float32)
 
-                # Choose an action using epsilon-greedy policy
-                exploration_prob = max(self.min_epsilon, self.epsilon * self.epsilon_decay**episode)
-                action = agent.select_action(state, exploration_prob)
+                # exploration_prob = max(self.min_epsilon, self.epsilon * self.epsilon_decay**episode)
+                # action = self.select_action(state, exploration_prob)
 
-                # Placeholder: Obtain next_state and reward based on your problem
-                next_content = "..."  # Replace with your logic
+                next_content = "..."
                 next_state = torch.tensor([ord(char) for char in next_content], dtype=torch.float32)
-                reward = 1.0  # Placeholder, define the reward based on your problem
+                reward = 1.0
 
-                # Update the Q-network
-                agent.update_q_network(state, action, reward, next_state)
+                # self.update_q_network(state, action, reward, next_state)
 
-                # Update state and total reward
                 state = next_state
-                self.total_reward += reward
+                # self.total_reward += reward
 
-                if done:
-                    break
+            if done:
+                break
 
 if __name__ == "__main__":
-    q_network = QNetwork
-    optimizer = optim.Adam
+    action_size = 64
+    state_size = 128
+    min_epsilon = 0.01
+    epsilon = 1.0
     input_size = 10
     output_size = 20
-    dqn_agent = DQNAgent(q_network, optimizer, input_size, output_size)  # Pass instances of QNetwork and optimizer
+    episode = 0
+    dqn_agent = DQNAgent(QNetwork, optim.Adam, state_size, action_size, input_size, output_size,
+                         gamma=0.99, min_epsilon=min_epsilon, epsilon_decay=0.995, target_update_frequency=100, epsilon=epsilon)
+
+    exploration_prob = max(dqn_agent.min_epsilon, dqn_agent.epsilon * dqn_agent.epsilon_decay**episode)
+    print(exploration_prob)
+
     training_data_path = "C:/Users/Mayra/Documents/AGI/Q_LLM/training_data/training_data.json"
-    training_data = load_training_data(training_data_path)
+    training_data = DQNAgent.load_training_data(training_data_path)
 
-    self = DQNAgent(q_network, optimizer, 128, 64)
-    exploration_prob = max(self.min_epsilon, self.epsilon * self.epsilon_decay**episode)
-    DQNAgent.train_dqn_agent(dqn_agent, exploration_prob, training_data, episodes=1000)
-
-    train_dqn()
+    exploration_prob = max(dqn_agent.min_epsilon, dqn_agent.epsilon * dqn_agent.epsilon_decay**episode)
+    dqn_agent.train_dqn_agent(dqn_agent, training_data, episodes=1000)
