@@ -330,7 +330,8 @@ agent_dqn.set_input_shape(env_dqn.observation_space)
 state_dqn = env_dqn.reset()
 
 state_dqn = env_dqn.reset()
-state_dqn = np.reshape(-1, (1, ))
+#state_dqn = np.reshape(-1, (1, ))
+state_dqn = np.array([-1])
 for time in range(500):
     action_dqn = agent_dqn.act(state_dqn)
     next_state_dqn, reward_dqn, done_dqn, _, _ = env_dqn.step(action_dqn)
