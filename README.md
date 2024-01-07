@@ -12,19 +12,25 @@ This project aims to develop a deep Q-network (DQN) agent system that can learn 
 First you need to clone this repository. Using your preferred terminal console to navigate where you cloned this repository. Then run the following command in the terminal
 
 ```console
-> .\bin\windows_start.bat
+> .\bin\windows_setup.bat
 ```
 
 This will download and install a local miniconda python environment. It will then install the required dependendencies.
 
 ## Linux
 
- - TODO
+ - Coming Soon!
  
 ## Mac
 
- - TODO
+ - Coming Soon!
  
-# Usuage
+# Usage
  
- - TODO This should include a brief overview of how to start and stop the agent. 
+After you have installed the system with `windows_setup.bat` next you need to run `windows_run.bat`
+
+```console
+> .\bin\windows_run.bat
+```
+
+This will start the DQN Agent in your windows console terminal.

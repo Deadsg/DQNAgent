@@ -12,6 +12,8 @@ set MINICONDA_INSTALL_TYPE=JustMe
 set MINICONDA_PATH=%ROOT_PATH%\miniconda
 
 echo.
+
+:prepare_directory
 echo Preparing Directory:
 IF DEFINED MINICONDA_PATH (
   rd /s /q %MINICONDA_PATH% >nul 2>&1
@@ -23,6 +25,7 @@ IF EXIST %MINICONDA_EXE% (
 echo %OKAY_TEXT%
 echo.
 
+:download_install_conda
 echo Downloading and Installing Miniconda:
 curl %MINICONDA_URL% -o %MINICONDA_EXE%
 start /wait "" %MINICONDA_EXE% /InstallationType=%MINICONDA_INSTALL_TYPE% /RegisterPython=0 /S /D=%MINICONDA_PATH%
@@ -30,7 +33,12 @@ del %MINICONDA_EXE%
 echo %OKAY_TEXT%
 echo.
 
+:create_conda_env
 echo Creating Environment:
-%MINICONDA_PATH%\Scripts\conda env create -f %BIN_PATH%\environment.yml
-%MINICONDA_PATH%\Scripts\conda activate %DQNA_TEXT%
-python %DQNA_PATH%\DQNAgent.py
+call %MINICONDA_PATH%\Scripts\conda env create -f %BIN_PATH%\environment.yml
+echo. 
+call %MINICONDA_PATH%\Scripts\conda list -n %DQNA_TEXT%
+echo.
+call %MINICONDA_PATH%\Scripts\conda env list
+echo %OKAY_TEXT%
+echo.
