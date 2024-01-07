@@ -34,3 +34,25 @@ After you have installed the system with `windows_setup.bat` next you need to ru
 ```
 
 This will start the DQN Agent in your windows console terminal.
+
+# Development
+
+The project uses Visual Studio (or VS Code if preferred) and requires the project to be setup before loading into visual studio.
+
+## Setup Local Development (Windows)
+To setup for local development perform the following steps
+
+ 1. Git clone the repository
+ 2. open your command terminal (or powershell)
+ 3. cd into where you cloned the repository
+ 4. run `.\bin\windows_setup.bat` 
+ 5. wait for setup to finish
+ 6. Open the `DQNAgent.sln`
+ 7. wait for solution explorer to load
+ 8. In Visual Studio, Open `tools -> python -> Python Environments`
+ 9. In `Python Environments` window click on `Add Environment`
+ 10. Select `Existing Environment` 
+ 11. In the environment dropdown select `<Custom>`
+ 12. In `Prefix Path` browse to `<repo_location>\DQNAgent\miniconda\envs\DQNAgent`
+ 13. Click `Add`
+ 14. Select `DQNAgent` from dropdown in visual studio toolbar
