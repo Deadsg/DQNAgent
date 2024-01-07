@@ -30,6 +30,6 @@ echo.
 
 :deactivate_conda_env
 echo Deactivate Conda Environment
-call %MINICONDA_PATH%\Scripts\conda deactivate
+conda deactivate
 echo %OKAY_TEXT%
 echo.
