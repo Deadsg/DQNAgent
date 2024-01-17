@@ -310,8 +310,6 @@ class DQNAgent:
                 next_state = torch.tensor([ord(char) for char in next_content], dtype=torch.float32)
 
 
-                
-
 if __name__ == "__main__":
     action_size = 64
     state_size = 128
