@@ -1,14 +1,21 @@
 import torch
 import logging
 from DQN_Node_Agent import DQNAgent, QNetwork
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
+torch.set_default_device("cpu")
+
+model = AutoModelForCausalLM.from_pretrained(
+    "stabilityai/stable-code-3b", torch_dtype="auto",
+    trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained(
+    "stabilityai/stable-code-3b", trust_remote_code=True)
 
 logging.basicConfig(filename='dqn_llm_logs.log', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-class DQNGPT2LLM:
+class DQNMistralLLM:
     def __init__(self):
         self.state_size = 128
         self.action_size = 64
@@ -20,12 +27,16 @@ class DQNGPT2LLM:
                                   target_update_frequency=100,
                                   epsilon=1.0)
 
-        self.training_data_path = "C:/Users/Mayra/Documents/AGI/DQNAgent/Q_LLM/training_data/training_data.json"
+        self.training_data_path = "C:/Users/Mayra/Documents/AGI/Q_LLM/training_data/training_data.json"
         self.training_data = DQNAgent.load_training_data(
             self.training_data_path)
 
-        self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-        self.gpt2_model = GPT2LMHeadModel.from_pretrained("gpt2")
+        model_path = "stabilityai/stable-code-3b"
+        self.mistral_model = AutoModelForCausalLM.from_pretrained(model_path,
+                                                                  torch_dtype="auto",
+                                                                  trust_remote_code=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path,
+                                                       trust_remote_code=True)
 
     def train_dqn_agent(self, episodes=1000):
         self.dqn_agent.train_dqn_agent(self.dqn_agent,
@@ -52,11 +63,11 @@ class DQNGPT2LLM:
         input_ids = self.tokenizer.encode(query, return_tensors="pt")
         attention_mask = torch.ones_like(input_ids)
 
-        output_ids = self.gpt2_model.generate(input_ids,
-                                              max_length=max_length,
-                                              num_return_sequences=1,
-                                              no_repeat_ngram_size=2,
-                                              attention_mask=attention_mask)
+        output_ids = self.mistral_model.generate(input_ids,
+                                                 max_length=max_length,
+                                                 num_return_sequences=1,
+                                                 no_repeat_ngram_size=2,
+                                                 attention_mask=attention_mask)
 
         generated_text = self.tokenizer.decode(
             output_ids[0], skip_special_tokens=True)
@@ -64,7 +75,7 @@ class DQNGPT2LLM:
 
 
 def main():
-    dqngpt2_llm = DQNGPT2LLM()
+    dqnmistral_llm = DQNMistralLLM()
 
     print("BATMAN_AI CLI INTERFACE")
 
@@ -76,10 +87,10 @@ def main():
             logging.info("Exiting BATMAN_AI CLI INTERFACE.")
             break
 
-        self = dqngpt2_llm
+        self = dqnmistral_llm
         query = f"{user_input}"
         generated_text = self.generate_text(query)
-        print(f"Batman_AI: {generated_text}")
+        print(f"{generated_text}")
         logging.info(f"User query: {query}, Generated text: {generated_text}")
 
 

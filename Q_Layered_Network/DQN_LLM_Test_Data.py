@@ -9,23 +9,44 @@ logging.basicConfig(filename='dqn_llm_logs.log', level=logging.INFO,
 
 
 class DQNGPT2LLM:
-    def __init__(self):
+    def __init__(self, test_data_path):
         self.state_size = 128
         self.action_size = 64
-        self.dqn_agent = DQNAgent(QNetwork, torch.optim.Adam,
-                                  self.state_size, self.action_size,
-                                  input_size=128, output_size=64,
-                                  gamma=0.99, min_epsilon=0.01,
-                                  epsilon_decay=0.995,
-                                  target_update_frequency=100,
+        self.dqn_agent = DQNAgent(QNetwork, torch.optim.Adam, 
+                                  self.state_size, self.action_size, 
+                                  input_size=128, output_size=64, 
+                                  gamma=0.99, min_epsilon=0.01, 
+                                  epsilon_decay=0.995, target_update_frequency=100, 
                                   epsilon=1.0)
 
         self.training_data_path = "C:/Users/Mayra/Documents/AGI/DQNAgent/Q_LLM/training_data/training_data.json"
         self.training_data = DQNAgent.load_training_data(
             self.training_data_path)
 
+        self.test_data_path = "C:/Users/Mayra/Documents/AGI/DQNAgent/Q_LLM/training_data/test_data.json"
+        self.test_data = self.load_test_data(self.test_data_path)
+
         self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
         self.gpt2_model = GPT2LMHeadModel.from_pretrained("gpt2")
+
+
+    def load_test_data(self, test_data_path):
+        test_data_path = "C:/Users/Mayra/Documents/AGI/DQNAgent/Q_LLM/training_data/test_data.json"
+        test_data = DQNAgent.load_training_data(test_data_path)
+        return test_data
+
+    def evaluate_on_test_data(self, test_data):
+        total_correct = 0
+        total_samples = len(test_data)
+
+        for sample in test_data:
+            state, action, reward, next_state, done = sample
+            predicted_action = self.dqn_agent.inference(state)
+            if predicted_action == action:
+                total_correct += 1
+
+        accuracy = total_correct / total_samples
+        return accuracy
 
     def train_dqn_agent(self, episodes=1000):
         self.dqn_agent.train_dqn_agent(self.dqn_agent,
@@ -64,7 +85,12 @@ class DQNGPT2LLM:
 
 
 def main():
-    dqngpt2_llm = DQNGPT2LLM()
+    test_data_path = "C:/Users/Mayra/Documents/AGI/DQNAgent/Q_LLM/training_data/test_data.json"
+    dqngpt2_llm = DQNGPT2LLM(test_data_path)
+
+    test_data = dqngpt2_llm.load_test_data(test_data_path)
+    accuracy = dqngpt2_llm.evaluate_on_test_data(test_data)
+    print(f"Model accuracy on test data: {accuracy}")
 
     print("BATMAN_AI CLI INTERFACE")
 
@@ -81,7 +107,6 @@ def main():
         generated_text = self.generate_text(query)
         print(f"Batman_AI: {generated_text}")
         logging.info(f"User query: {query}, Generated text: {generated_text}")
-
 
 if __name__ == "__main__":
     main()

@@ -10,6 +10,7 @@ from collections import namedtuple, deque
 import random
 import gym
 
+
 def DQN_Node_Agent():
     QNetwork
     DQNAgent(self, q_network, optimizer, state_size, action_size, input_size, output_size, learning_rate=0.001, discount_factor=0.9, buffer_size=10000, batch_size=64, gamma=0.99, min_epsilon=0.01, epsilon_decay=0.995, target_update_frequency=100, epsilon=1.0)
@@ -17,7 +18,8 @@ def DQN_Node_Agent():
     learning_rate = 0.001
     q_network = QNetwork
     optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
-    
+
+
 class DQNAgent:
     def __init__(self, q_network, optimizer, state_size, action_size, input_size, output_size, learning_rate=0.001, discount_factor=0.9, buffer_size=10000, batch_size=64, gamma=0.99, min_epsilon=0.01, epsilon_decay=0.995, target_update_frequency=100, epsilon=1.0):
         self.q_network = q_network(input_size, output_size)  # Create an instance of QNetwork
@@ -324,7 +326,7 @@ if __name__ == "__main__":
     exploration_prob = max(dqn_agent.min_epsilon, dqn_agent.epsilon * dqn_agent.epsilon_decay**episode)
     print(exploration_prob)
 
-    training_data_path = "C:/Users/Mayra/Documents/AGI/Q_LLM/training_data/training_data.json"
+    training_data_path = "C:/Users/Mayra/Documents/AGI/DQNAgent/Q_LLM/training_data/training_data.json"
     training_data = DQNAgent.load_training_data(training_data_path)
 
     exploration_prob = max(dqn_agent.min_epsilon, dqn_agent.epsilon * dqn_agent.epsilon_decay**episode)
