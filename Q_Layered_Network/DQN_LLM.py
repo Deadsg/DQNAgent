@@ -20,12 +20,12 @@ class DQNGPT2LLM:
                                   target_update_frequency=100,
                                   epsilon=1.0)
 
-        self.training_data_path = "C:/Users/Mayra/Documents/AGI/DQNAgent/Q_LLM/training_data/training_data.json"
+        self.training_data_path = "./training_data/training_data.json"
         self.training_data = DQNAgent.load_training_data(
             self.training_data_path)
 
-        self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-        self.gpt2_model = GPT2LMHeadModel.from_pretrained("gpt2")
+        self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2-large")
+        self.gpt2_model = GPT2LMHeadModel.from_pretrained("gpt2-large")
 
     def train_dqn_agent(self, episodes=1000):
         self.dqn_agent.train_dqn_agent(self.dqn_agent,
