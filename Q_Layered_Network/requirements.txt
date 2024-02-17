@@ -350,7 +350,7 @@ sqlite-migrate==0.1b0
 sqlite-utils==3.36
 srsly==2.4.8
 stack-data==0.6.3
-starlette==0.27.0
+starlette==0.36.2
 statesman==1.0.4
 stevedore==5.1.0
 streamlit==1.28.2
